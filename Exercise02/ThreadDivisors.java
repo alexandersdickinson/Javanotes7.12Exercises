@@ -4,97 +4,104 @@ A rehash of an exercise from chapter 3 that finds the number with the largest nu
 
 public class ThreadDivisors{
 	
-	private static final int SAMPLE_SIZE = 100000;
-	private static final int THREAD_COUNT = 4;
-	private static int maxDividend;
-	private static int maxDivisorCount = 0;
+	private static final int DIVIDEND_COUNT = 100000;
+	private static DivisorThread[] threads;
+	private static int dividend;//dividend with the most divisors.
+	private static int divisorCount;//number of divisors for the dividend with the most divisors
 	
 	public static void main(String[] args){
 		
+		threads = new DivisorThread[Runtime.getRuntime().availableProcessors()];
 		int start = 1;
-		int end = SAMPLE_SIZE / THREAD_COUNT;
-		DivisorThread[] threads = new DivisorThread[THREAD_COUNT];
-		
-		for(int i = 0; i < THREAD_COUNT; i++){
+		int taskSize;
+		taskSize = DIVIDEND_COUNT / threads.length;
+		int end = taskSize;
+			
+		for(int i = 0; i < threads.length; i++){//create threads
+			
 			threads[i] = new DivisorThread(start, end);
-			start += SAMPLE_SIZE / THREAD_COUNT;
-			end += SAMPLE_SIZE / THREAD_COUNT;
+			start += taskSize;
+			end += taskSize;
+			
 		}
 		
-		for(int i = 0; i < THREAD_COUNT; i++){
+		for(int i = 0; i < threads.length; i++){
 			threads[i].start();
 		}
 		
-		for(int i = 0; i < THREAD_COUNT; i++){
-			while(threads[i].isAlive()){
-				try{
-					threads[i].join();
-				}
-				catch(InterruptedException e){
-					System.out.println(e.getMessage());
-					e.printStackTrace();
-				}
+		for(int i = 0; i < threads.length; i++){
+			try{
+				threads[i].join();
+			}
+			catch(InterruptedException e){
+				e.printStackTrace();
 			}
 		}
 		
-		System.out.println("The number with the most divisors is " + maxDividend);
-		System.out.println(maxDivisorCount);
+		System.out.println("The dividend with the most divisors is " + dividend + " and has " + divisorCount + " divisors.");
 		
 	}
 	
-	static class DivisorThread extends Thread{
+	private static class DivisorThread extends Thread{
 		
-		static int start;
-		static int end;
+		int start;
+		int end;
 		
 		public DivisorThread(int start, int end){
 			this.start = start;
 			this.end = end;
 		}
 		
+		/**
+			This thread finds the first number with the most dividends in the range given.
+		*/
 		public void run(){
 			
-			System.out.println("Thread running...");
-			divisorCount(start, end);
+			int maxDividend = 0;//number with the most divisors in the given range.
+			int maxDivisors = 0;//number of divisors for the dividend with the largest number of divisors in the given range.
+			int divisorCount;//number of divisors for the current dividend.
+			System.out.println("Thread working...");
+			
+			//iterate through the dividends in the range given
+			for(int i = start; i <= end; i++){
+				
+				divisorCount = 1;
+				
+				for(int j = 1; j <= i/2; j++){//iterate through divisors
+					
+					if(i % j == 0){
+						divisorCount++;
+					}
+					
+				}
+				
+				if(divisorCount > maxDivisors){
+					maxDividend = i;
+					maxDivisors = divisorCount;
+				}
+				
+			}
+			
+			updateGreatest(maxDividend, maxDivisors);
 			
 		}
 		
 	}
-		
-	private static void divisorCount(int start, int end){
-		
-		int divisorCount;//number of divisors for number being divided
-		int maxThreadDividend = start;
-		int maxThreadDivisorCount = 0;
 	
-		for (int dividend = start; dividend <= end; dividend++){//iterate through dividends
+	/**
+		This subroutine takes the number with the greatest number of divisors from each thread and compares it to the number
+		with the greatest number of divisors found by other threads. If the new dividend has more divisors than the old
+		dividend, the relevant values are updated.
 		
-			divisorCount = 1;
+		@param rangeDividend The dividend found by the calling thread that has the most divisors of all dividends in the thread's
+							 given range.
+		@param rangeDivisors The number of divisors of the dividend with the most divisor's in the calling thread's given range.
+	*/
+	private static synchronized void updateGreatest(int rangeDividend, int rangeDivisors){
 		
-			for (int divisor = 1; divisor <= dividend/2; divisor++){//iterate through divisors
-			
-				if (dividend % divisor == 0){
-					divisorCount++;
-				}//end if
-				
-			}//end for
-		
-			if (divisorCount > maxThreadDivisorCount){
-				maxThreadDivisorCount = divisorCount;
-				maxThreadDividend = dividend;
-			}
-		
-		}//end for
-		
-		report(maxThreadDivisorCount, maxThreadDividend);
-		
-	}
-	
-	private synchronized static void report(int maxThreadDivisorCount, int maxThreadDividend){
-		
-		if(maxThreadDivisorCount > maxDivisorCount){
-			maxDivisorCount = maxThreadDivisorCount;
-			maxDividend = maxThreadDividend;
+		if(rangeDivisors > divisorCount){
+			divisorCount = rangeDivisors;
+			dividend = rangeDividend;
 		}
 		
 	}
